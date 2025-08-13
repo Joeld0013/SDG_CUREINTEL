@@ -21,10 +21,12 @@ class HealthGuardChat {
         this.attachedImage = null; // Holds the base64 string of the image
         this.isRecognizing = false;
         this.recognition = null;
+        this.currentScanMessageId = null; // Track the scanning message for updates
 
         this.initializeEventListeners();
         this.adjustTextareaHeight();
         this.initializeSpeechRecognition();
+        this.initializeBackgroundMessageListener();
     }
 
     initializeEventListeners() {
@@ -40,9 +42,6 @@ class HealthGuardChat {
             // Enable send button if there's text OR an image attached
             this.sendBtn.disabled = this.textInput.value.trim().length === 0 && !this.attachedImage;
         });
-this.textInput.addEventListener('paste', (e) => {
-    e.stopPropagation(); // prevent interference
-});
 
         // --- Image Handling Events ---
         this.fileUploadBtn.addEventListener('click', () => this.fileInput.click());
@@ -53,6 +52,39 @@ this.textInput.addEventListener('paste', (e) => {
         this.voiceBtn.addEventListener('click', () => this.handleVoiceInput());
         if (this.scanBtn) this.scanBtn.addEventListener('click', () => this.handlePageScan());
         if (this.clearBtn) this.clearBtn.addEventListener('click', () => this.clearConversation());
+    }
+
+    // Listen for messages from background script
+    initializeBackgroundMessageListener() {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            console.log('[panel.js] Received message:', request.action);
+            
+            switch (request.action) {
+                case "analysisStarted":
+                    this.updateScanMessage("🔍 Analyzing health claims...");
+                    break;
+                    
+                case "scanResults":
+                    this.displayScanResults(request.data);
+                    break;
+                    
+                case "scanComplete":
+                    if (request.success) {
+                        this.updateScanMessage("✅ " + request.message);
+                    } else {
+                        this.updateScanMessage("⚠️ " + request.message);
+                    }
+                    this.currentScanMessageId = null;
+                    break;
+                    
+                case "scanError":
+                    this.updateScanMessage("❌ " + request.message);
+                    this.currentScanMessageId = null;
+                    break;
+            }
+            
+            return true;
+        });
     }
 
     // --- Image Handling Methods ---
@@ -136,19 +168,110 @@ this.textInput.addEventListener('paste', (e) => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs.length > 0) {
                 const currentTabId = tabs[0].id;
+                
+                // Add initial scanning message
+                this.currentScanMessageId = this.addScanMessage("🔎 Scanning current page for health claims...");
+                
                 // Send a message to the background script to start the process.
                 chrome.runtime.sendMessage({
                     action: "scanPage",
                     tabId: currentTabId
                 });
-                // Provide feedback in the side panel.
-                this.addMessage("🔎 Scanning current page for health claims...", "bot");
-                // REMOVED window.close() - Keep the panel open!
+                
                 console.log('[panel.js] Scan initiated, keeping panel open');
             } else {
                 this.addMessage("❌ Could not find an active tab to scan.", "bot");
             }
         });
+    }
+
+    // Add a special scan message that can be updated
+    addScanMessage(content) {
+        document.querySelector('.placeholder-text')?.remove();
+        
+        const messageId = 'scan-message-' + Date.now();
+        const messageDiv = document.createElement('div');
+        messageDiv.id = messageId;
+        messageDiv.className = 'message bot';
+        
+        messageDiv.innerHTML = `
+            <div class="message-avatar"><img src="HealthGuardAI.jpeg" alt="Bot" class="logo-image"></div>
+            <div class="message-content">
+                <div class="scan-status">${content}</div>
+            </div>
+        `;
+        
+        this.conversationArea.appendChild(messageDiv);
+        this.scrollToBottom();
+        
+        return messageId;
+    }
+
+    // Update the scanning message
+    updateScanMessage(content) {
+        if (this.currentScanMessageId) {
+            const messageDiv = document.getElementById(this.currentScanMessageId);
+            if (messageDiv) {
+                const statusDiv = messageDiv.querySelector('.scan-status');
+                if (statusDiv) {
+                    statusDiv.innerHTML = content;
+                }
+            }
+        }
+    }
+
+    // Display the scan results with progress bar
+    displayScanResults(data) {
+        if (!this.currentScanMessageId) return;
+        
+        const messageDiv = document.getElementById(this.currentScanMessageId);
+        if (!messageDiv) return;
+        
+        const stats = data.statistics;
+        const claims = data.claims || [];
+        
+        // Create the progress bar HTML
+        const progressBarHTML = this.createProgressBar(stats);
+        
+        // Update the message content with results
+        const contentDiv = messageDiv.querySelector('.message-content');
+        contentDiv.innerHTML = `
+            <div class="scan-results-header">
+                <h4>📊 Page Analysis Complete</h4>
+                <p>Found <strong>${stats.total_claims}</strong> health-related claims</p>
+            </div>
+            ${progressBarHTML}
+            <div class="scan-summary">
+                <div class="summary-stats">
+                    <span class="stat-item accurate">✅ ${stats.accurate_count} Accurate (${stats.accurate_percentage}%)</span>
+                    <span class="stat-item misleading">❌ ${stats.misleading_count} Misleading (${stats.misleading_percentage}%)</span>
+                    <span class="stat-item unverifiable">❔ ${stats.unverifiable_count} Unverifiable (${stats.unverifiable_percentage}%)</span>
+                </div>
+            </div>
+        `;
+        
+        this.scrollToBottom();
+    }
+
+    // Create progress bar HTML
+    createProgressBar(stats) {
+        const { accurate_percentage, misleading_percentage, unverifiable_percentage } = stats;
+        
+        return `
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-segment accurate" 
+                         style="width: ${accurate_percentage}%"
+                         title="Accurate: ${accurate_percentage}%"></div>
+                    <div class="progress-segment unverifiable" 
+                         style="width: ${unverifiable_percentage}%"
+                         title="Unverifiable: ${unverifiable_percentage}%"></div>
+                    <div class="progress-segment misleading" 
+                         style="width: ${misleading_percentage}%"
+                         title="Misleading: ${misleading_percentage}%"></div>
+                </div>
+            </div>
+        `;
     }
 
     // --- UI Update Methods ---
@@ -237,10 +360,9 @@ this.textInput.addEventListener('paste', (e) => {
         this.textInput.value = '';
         this.handleRemoveImage();
         this.adjustTextareaHeight();
+        this.currentScanMessageId = null;
     }
 
-   
-    
     // --- Helper Methods ---
     adjustTextareaHeight() {
         this.textInput.style.height = 'auto';

@@ -1,12 +1,8 @@
 🏥 HealthGuard AI - Intelligent Health Information Validator
 <div align="center">
-Show Image
+WhatsAppDesktop_cv1g1gvanyjgm\TempState\AB24CD2B811EE48A416FC7A833D736A9\WhatsApp Image 2025-08-13 at 17.20.27_3459468b.jpg
 The Smart Chrome Extension That Protects You From Medical Misinformation
-Show Image
-Show Image
-Show Image
-Show Image
-
+c:\Users\JOEL\AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\TempState\B2B7C555125ECACF4BB7678D9DC39A21\WhatsApp Image 2025-08-13 at 17.20.05_bfdb9658.jpg c:\Users\JOEL\AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\TempState\6F67057B6A3671FE882F6D4F27D547BE\WhatsApp Image 2025-08-13 at 17.20.06_18f97410.jpg c:\Users\JOEL\AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\TempState\C42F891CEBBC81AA59F8F183243AC2B9\WhatsApp Image 2025-08-13 at 17.20.06_30253d1c.jpg c:\Users\JOEL\AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\TempState\64F07F012A35C83D7C556BA0B69EF64E\WhatsApp Image 2025-08-13 at 17.20.06_5028266c.jpg c:\Users\JOEL\AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\TempState\FDEEA652A89EC3E970D22A86698AC8C4\WhatsApp Image 2025-08-13 at 17.20.07_22274c14.jpg c:\Users\JOEL\AppData\Local\Packages\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\TempState\4EE78D4122EF8503FE01CDAD3E9EA4EE\WhatsApp Image 2025-08-13 at 17.20.07_b2014c87.jpg c:\Users\JOEL\AppData\Local\Packages\5319275A.
 ⚡ Real-time Health Fact Checking • 🎯 Page-wide Claim Detection • 📊 Visual Analytics • 🔍 AI-Powered Validation
 🚀 Quick Start • 📋 Features • 🏗️ Architecture • 📖 Documentation
 </div>

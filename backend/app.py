@@ -18,7 +18,7 @@ CORS(app)
 
 # Set your Gemini API key here
 # IMPORTANT: For security, use environment variables in production instead of hardcoding keys.
-API_KEY = "AIzaSyCgIMjEJAEmRPRieeG4mhartrjb20MJdfM"  # Replace with your actual API key
+API_KEY = "AIzaSyAkxgVMsFzFs6jPIVg_SrNCKSqjpprqTIw"  # Replace with your actual API key
 os.environ["GOOGLE_API_KEY"] = API_KEY
 genai.configure(api_key=API_KEY)
 

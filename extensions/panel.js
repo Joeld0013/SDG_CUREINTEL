@@ -56,7 +56,7 @@ class HealthGuardChat {
     handleFileUpload(event) {
         const file = event.target.files[0];
         if (!file || !file.type.startsWith('image/')) {
-            if (file) this.addMessage('⚠ Please select a valid image file.', 'bot');
+            if (file) this.addMessage('⚠️ Please select a valid image file.', 'bot');
             return;
         }
 
@@ -236,6 +236,8 @@ class HealthGuardChat {
         this.adjustTextareaHeight();
     }
 
+   
+    
     // --- Helper Methods ---
     adjustTextareaHeight() {
         this.textInput.style.height = 'auto';

@@ -40,6 +40,9 @@ class HealthGuardChat {
             // Enable send button if there's text OR an image attached
             this.sendBtn.disabled = this.textInput.value.trim().length === 0 && !this.attachedImage;
         });
+this.textInput.addEventListener('paste', (e) => {
+    e.stopPropagation(); // prevent interference
+});
 
         // --- Image Handling Events ---
         this.fileUploadBtn.addEventListener('click', () => this.fileInput.click());

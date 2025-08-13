@@ -209,7 +209,13 @@ class HealthGuardChat {
             const contentPayload = image ? { text: text, image_base64: image } : text;
             
             // Choose endpoint based on mode
-            const endpoint = this.doctorMode ? '/doctor-mode' : '/validate';
+            let endpoint;
+            if (this.doctorMode) {
+                endpoint = '/doctor-mode';
+            } else {
+                // Check if input contains multiple health claims
+                endpoint = this.containsMultipleClaims(text) ? '/analyze-multiple' : '/validate';
+            }
             
             const response = await fetch(`${this.API_BASE_URL}${endpoint}`, {
                 method: 'POST',
@@ -229,7 +235,12 @@ class HealthGuardChat {
                 if (data.is_health_related === false) {
                     this.addMessage(data.message || "This doesn't appear to be a health-related query.", 'bot');
                 } else {
-                    this.displayValidationResult(data);
+                    // Check if it's multiple claims analysis or single validation
+                    if (data.claims && Array.isArray(data.claims)) {
+                        this.displayMultipleClaimsResult(data);
+                    } else {
+                        this.displayValidationResult(data);
+                    }
                 }
             }
 
@@ -241,7 +252,156 @@ class HealthGuardChat {
             this.addMessage(errorMsg, 'bot');
         }
     }
-    
+
+    // Add this new method to detect multiple claims:
+    containsMultipleClaims(text) {
+        // Simple heuristic: if text contains multiple sentences with health keywords
+        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
+        if (sentences.length < 2) return false;
+        
+        const healthKeywords = [
+            'vitamin', 'medicine', 'treatment', 'cure', 'prevent', 'disease', 'health', 
+            'exercise', 'diet', 'nutrition', 'symptom', 'doctor', 'medical', 'therapy',
+            'supplement', 'drug', 'medication', 'illness', 'condition', 'risk', 'benefit'
+        ];
+        
+        let healthSentences = 0;
+        sentences.forEach(sentence => {
+            const lowerSentence = sentence.toLowerCase();
+            if (healthKeywords.some(keyword => lowerSentence.includes(keyword))) {
+                healthSentences++;
+            }
+        });
+        
+        return healthSentences >= 2;
+    }
+
+    // FIXED: Display multiple claims results with proper sources
+    displayMultipleClaimsResult(data) {
+        const { total_claims, accurate_count, misleading_count, unverifiable_count, overall_accuracy_percentage } = data;
+        const claims = data.claims || [];
+        const sources = data.sources || []; // Make sure we get sources
+        
+        // Create overall statistics display
+        const statsHTML = `
+            <div class="multiple-claims-header">
+                <h4>📊 Health Claims Analysis</h4>
+                <div class="overall-stats">
+                    <div class="stat-card accurate">
+                        <span class="stat-number">${accurate_count}</span>
+                        <span class="stat-label">Accurate</span>
+                    </div>
+                    <div class="stat-card misleading">
+                        <span class="stat-number">${misleading_count}</span>
+                        <span class="stat-label">Misleading</span>
+                    </div>
+                    <div class="stat-card unverifiable">
+                        <span class="stat-number">${unverifiable_count}</span>
+                        <span class="stat-label">Unverifiable</span>
+                    </div>
+                </div>
+                <div class="accuracy-summary">
+                    <strong>Overall Accuracy: ${overall_accuracy_percentage}%</strong> 
+                    (${accurate_count}/${total_claims} claims are accurate)
+                </div>
+            </div>
+        `;
+        
+        // Create individual claims display
+        const claimsHTML = claims.map((claim, index) => {
+            let classificationIcon, classificationClass;
+            switch (claim.classification) {
+                case 'Accurate': 
+                    classificationIcon = '✅'; 
+                    classificationClass = 'accurate'; 
+                    break;
+                case 'Misleading': 
+                    classificationIcon = '❌'; 
+                    classificationClass = 'misleading'; 
+                    break;
+                default: 
+                    classificationIcon = '❔'; 
+                    classificationClass = 'unverifiable'; 
+                    break;
+            }
+            
+            return `
+                <div class="individual-claim ${classificationClass}">
+                    <div class="claim-header">
+                        <span class="claim-number">Claim ${index + 1}</span>
+                        <span class="claim-classification">
+                            ${classificationIcon} ${claim.classification}
+                            <span class="confidence">${claim.confidence_score}% confidence</span>
+                        </span>
+                    </div>
+                    <div class="claim-text">"${claim.claim_text}"</div>
+                    <div class="claim-explanation">
+                        <strong>Analysis:</strong> ${claim.explanation}
+                    </div>
+                    ${claim.correct_information ? `
+                        <div class="correct-info">
+                            <strong>Correct Information:</strong> ${claim.correct_information}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+        
+        // FIXED: Sources section - ensure we display the sources properly
+        const sourcesHTML = sources && sources.length > 0 ? `
+            <div class="sources-section">
+                <h5>📚 Verified Medical Sources</h5>
+                <div class="sources-grid">
+                    ${sources.map(source => `
+                        <div class="source-item">
+                            <div class="source-details">
+                                <span class="source-name">${source.name}</span>
+                                <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-link">
+                                    <i class="fa-solid fa-external-link-alt"></i> Visit Source
+                                </a>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        ` : `
+            <div class="sources-section">
+                <h5>📚 Verified Medical Sources</h5>
+                <p>No specific sources were provided, but information is based on verified medical databases.</p>
+            </div>
+        `;
+        
+        const summaryHTML = data.summary ? `
+            <div class="analysis-summary">
+                <h5>📋 Summary</h5>
+                <p>${data.summary}</p>
+            </div>
+        ` : '';
+        
+        const botMessageHTML = `
+            <div class="message-avatar"> 
+                <img src="HealthGuardAI.png" alt="Bot" class="logo-image"> 
+            </div>
+            <div class="message-content">
+                <div class="multiple-claims-analysis">
+                    ${statsHTML}
+                    <div class="claims-breakdown">
+                        <h5>🔍 Individual Claims Analysis</h5>
+                        ${claimsHTML}
+                    </div>
+                    ${sourcesHTML}
+                    ${summaryHTML}
+                </div>
+            </div>
+        `;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot multiple-claims';
+        messageDiv.innerHTML = botMessageHTML;
+        this.conversationArea.appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+        
     handlePageScan() {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs.length > 0) {
@@ -271,7 +431,7 @@ class HealthGuardChat {
         messageDiv.className = 'message bot';
         
         messageDiv.innerHTML = `
-            <div class="message-avatar"><img src="HealthGuardAI.jpeg" alt="Bot" class="logo-image"></div>
+            <div class="message-avatar"><img src="HealthGuardAI.png" alt="Bot" class="logo-image"></div>
             <div class="message-content">
                 <div class="scan-status">${content}</div>
             </div>
@@ -296,7 +456,7 @@ class HealthGuardChat {
         }
     }
 
-    // Display the scan results with progress bar
+    // FIXED: Display scan results with proper sources
     displayScanResults(data) {
         if (!this.currentScanMessageId) return;
         
@@ -305,8 +465,23 @@ class HealthGuardChat {
         
         const stats = data.statistics;
         const claims = data.claims || [];
+        const sources = data.sources || []; // Make sure we get sources
         
         const progressBarHTML = this.createProgressBar(stats);
+        
+        // FIXED: Include sources in scan results
+        const sourcesSection = sources && sources.length > 0 ? `
+            <div class="scan-sources">
+                <h6>📚 Verified Sources Used:</h6>
+                <div class="scan-sources-list">
+                    ${sources.map(source => `
+                        <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="scan-source-link">
+                            ${source.name} <i class="fa-solid fa-external-link-alt"></i>
+                        </a>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
         
         const contentDiv = messageDiv.querySelector('.message-content');
         contentDiv.innerHTML = `
@@ -322,6 +497,7 @@ class HealthGuardChat {
                     <span class="stat-item unverifiable">❔ ${stats.unverifiable_count} Unverifiable (${stats.unverifiable_percentage}%)</span>
                 </div>
             </div>
+            ${sourcesSection}
         `;
         
         this.scrollToBottom();
@@ -348,15 +524,17 @@ class HealthGuardChat {
         `;
     }
 
-    // NEW: Display doctor mode response
+    // FIXED: Display doctor mode response with proper sources
     displayDoctorResponse(data) {
         if (data.is_health_related === false) {
             this.addMessage(data.message || "I am HealthGuard AI Doctor and can only assist with health and medical questions.", 'bot', null, true);
             return;
         }
 
+        const verifiedSources = data.verified_sources || []; // Make sure we get verified sources
+
         const botMessageHTML = `
-            <div class="message-avatar"> <img src="HealthGuardAI.jpeg" alt="Bot" class="logo-image"> </div>
+            <div class="message-avatar"> <img src="HealthGuardAI.png" alt="Bot" class="logo-image"> </div>
             <div class="message-content">
                 <div class="doctor-response">
                     <div class="doctor-response-header">
@@ -423,15 +601,25 @@ class HealthGuardChat {
                         </div>
                     ` : ''}
                     
-                    ${data.verified_sources && data.verified_sources.length > 0 ? `
+                    ${verifiedSources && verifiedSources.length > 0 ? `
                         <div class="verified-sources">
                             <h5><i class="fa-solid fa-certificate"></i> Verified Medical Sources</h5>
-                            ${data.verified_sources.map(source => `
-                                <div class="source-item">
-                                    <span class="source-name">${source.name}</span>
-                                    <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-link">View Source</a>
-                                </div>
-                            `).join('')}
+                            <div class="doctor-sources-grid">
+                                ${verifiedSources.map(source => `
+                                    <div class="doctor-source-item">
+                                        <div class="source-header">
+                                            <span class="source-name">${source.name}</span>
+                                            <span class="source-category ${source.category?.toLowerCase()}">${source.category || 'Medical'}</span>
+                                        </div>
+                                        <div class="source-details">
+                                            <p class="source-credibility">${source.credibility || 'Trusted medical source'}</p>
+                                            <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-link">
+                                                <i class="fa-solid fa-external-link-alt"></i> Visit Source
+                                            </a>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
                         </div>
                     ` : ''}
                 </div>
@@ -450,7 +638,7 @@ class HealthGuardChat {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${type}${isDoctorMode && type === 'bot' ? ' doctor-mode' : ''}`;
         
-        const avatarSrc = type === 'user' ? null : 'HealthGuardAI.jpeg';
+        const avatarSrc = type === 'user' ? null : 'HealthGuardAI.png';
         const avatarContent = type === 'user' ? '<i class="fa-solid fa-user"></i>' : `<img src="${avatarSrc}" alt="Bot" class="logo-image">`;
         const imageHTML = imageUrl ? `<div class="message-image-container"><img src="${imageUrl}" alt="User upload" class="message-image"></div>` : '';
         const contentHTML = content ? `<div class="message-text">${content.replace(/\n/g, '<br>')}</div>` : '';
@@ -475,7 +663,7 @@ class HealthGuardChat {
         const loadingText = this.doctorMode ? 'Consulting medical databases...' : 'Analyzing...';
         
         loadingDiv.innerHTML = `
-            <div class="message-avatar"> <img src="HealthGuardAI.jpeg" alt="Bot" class="logo-image"> </div>
+            <div class="message-avatar"> <img src="HealthGuardAI.png" alt="Bot" class="logo-image"> </div>
             <div class="message-content loading${this.doctorMode ? ' doctor-mode' : ''}">
                 <div class="loading-spinner"></div>
                 <span>${loadingText}</span>
@@ -489,6 +677,7 @@ class HealthGuardChat {
         document.getElementById('loadingMessage')?.remove();
     }
 
+    // FIXED: Display validation result with proper sources
     displayValidationResult(data) {
         let classificationIcon, classificationClass;
         switch (data.classification) {
@@ -497,12 +686,23 @@ class HealthGuardChat {
             default: classificationIcon = '❔'; classificationClass = 'unverifiable'; break;
         }
 
-        const sourcesTableRows = data.sources && data.sources.length > 0
-            ? data.sources.map(s => `<tr><td>${s.name}</td><td><a href="${s.url}" target="_blank" rel="noopener noreferrer">View Source</a></td></tr>`).join('')
-            : '<tr><td colspan="2">No specific sources were cited.</td></tr>';
+        // FIXED: Ensure sources are properly handled
+        const sources = data.sources || [];
+        const sourcesTableRows = sources && sources.length > 0
+            ? sources.map(s => `
+                <tr>
+                    <td>${s.name}</td>
+                    <td>
+                        <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="source-table-link">
+                            <i class="fa-solid fa-external-link-alt"></i> View Source
+                        </a>
+                    </td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="2">No specific sources were cited for this validation.</td></tr>';
 
         const botMessageHTML = `
-            <div class="message-avatar"> <img src="HealthGuardAI.jpeg" alt="Bot" class="logo-image"> </div>
+            <div class="message-avatar"> <img src="HealthGuardAI.png" alt="Bot" class="logo-image"> </div>
             <div class="message-content">
                 <div class="validation-header ${classificationClass}">
                     <span class="classification-icon">${classificationIcon}</span>
@@ -513,9 +713,9 @@ class HealthGuardChat {
                 <div class="details-section">
                     <h4>Explanation</h4><p>${data.explanation || 'N/A'}</p>
                     <h4>The Correct Information</h4><p>${data.correct_information || 'N/A'}</p>
-                    <h4>Verified Sources</h4>
+                    <h4>Verified Medical Sources</h4>
                     <table class="sources-table">
-                        <thead><tr><th>Organization</th><th>Link</th></tr></thead>
+                        <thead><tr><th>Medical Organization</th><th>Official Link</th></tr></thead>
                         <tbody>${sourcesTableRows}</tbody>
                     </table>
                 </div>

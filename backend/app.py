@@ -324,7 +324,6 @@ def clean_response_text(text):
     
     return text.strip()
 
-<<<<<<< HEAD
 def calculate_statistics(claims):
     """Calculate percentage statistics for claims"""
     if not claims:
@@ -353,9 +352,6 @@ def calculate_statistics(claims):
         "unverifiable_percentage": round((unverifiable_count / total_claims) * 100) if total_claims > 0 else 0
     }
 
-=======
-# --- UPDATED /scan-page ENDPOINT with better error handling ---
->>>>>>> 765a4da8e4c9b3455a600db7b72ee83ef4fb44ee
 @app.route("/scan-page", methods=["POST"])
 def scan_page():
     try:

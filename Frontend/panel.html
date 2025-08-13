@@ -19,6 +19,13 @@ panel.html ( with inline css )
     <h1 class="main-title">HealthGuard AI</h1>
 </div>
 
+<div class="conversation-area" id="conversationArea">
+    <div class="placeholder-text">
+        <h2>Hi, There!</h2>
+        <p>Welcome to HealthGuard AI</p>
+    </div>
+</div>
+
 <div class="input-section">
     <div id="imagePreviewWrapper" style="display: none;">
         <div class="image-preview-container">
@@ -27,7 +34,25 @@ panel.html ( with inline css )
         </div>
     </div>
 
+    <div class="input-container">
+        <button class="file-upload-btn" id="fileUploadBtn" title="Upload image"><i class="fa-solid fa-paperclip"></i></button>
+        <textarea class="text-input" id="textInput" placeholder="Ask about health information..." rows="1"></textarea>
+        <button class="voice-btn" id="voiceBtn" title="Voice input"><i class="fa-solid fa-microphone"></i></button>
+        <button class="send-btn" id="sendBtn" title="Send message" disabled><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+    
+    <div class="action-buttons">
+        <button class="action-btn" id="scanBtn">
+            <i class="fa-solid fa-magnifying-glass"></i> Scan Current Page
+        </button>
+        <button class="action-btn" id="clearBtn">
+            <i class="fa-solid fa-trash"></i> Clear Chat
+        </button>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*">
 </div>
+<script src="panel.js"></script>
 
 </body>
 </html>

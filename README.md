@@ -2,7 +2,13 @@
 <div align="center">
 The Smart Chrome Extension That Protects You From Medical Misinformation
 
-page1.jpg
+![WhatsApp Image 2025-08-13 at 17 20 06_9a1cca8c](https://github.com/user-attachments/assets/68ec6818-392e-467b-9a36-24e34f3e8704)
+![WhatsApp Image 2025-08-13 at 17 20 05_1d4708e3](https://github.com/user-attachments/assets/d5e1f2dd-1158-43dd-ab20-11b20bbad98f)
+![page1](https://github.com/user-attachments/assets/ee5c4505-5a72-459d-a3fe-49202bbbe48f)
+![WhatsApp Image 2025-08-13 at 17 20 07_6912bfc6](https://github.com/user-attachments/assets/cffa40bf-10ef-4532-9ff6-a819ee67f100)
+![WhatsApp Image 2025-08-13 at 17 20 07_af126feb](https://github.com/user-attachments/assets/5b452ee1-8308-46a4-95a8-376f4fd69d3f)
+![WhatsApp Image 2025-08-13 at 17 20 06_ace017bf](https://github.com/user-attachments/assets/424e7d8e-8738-4c86-870b-061630ba76bb)
+![WhatsApp Image 2025-08-13 at 17 20 06_a3dd439e](https://github.com/user-attachments/assets/99a4858d-ed94-4528-9c84-14c6c09ba210)
 
 ⚡ Real-time Health Fact Checking • 🎯 Page-wide Claim Detection • 📊 Visual Analytics • 🔍 AI-Powered Validation
 🚀 Quick Start • 📋 Features • 🏗️ Architecture • 📖 Documentation

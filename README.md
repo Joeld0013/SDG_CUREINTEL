@@ -1,7 +1,6 @@
 🏥 HealthGuard AI - Intelligent Health Information Validator
 <div align="center">
 The Smart Chrome Extension That Protects You From Medical Misinformation
-c:\Users\JOEL\Downloads\WhatsApp Image 2025-08-13 at 17.20.05_1d4708e3.jpg c:\Users\JOEL\Downloads\WhatsApp Image 2025-08-13 at 17.20.06_9a1cca8c.jpg c:\Users\JOEL\Downloads\WhatsApp Image 2025-08-13 at 17.20.06_a3dd439e.jpg c:\Users\JOEL\Downloads\WhatsApp Image 2025-08-13 at 17.20.06_ace017bf.jpg c:\Users\JOEL\Downloads\WhatsApp Image 2025-08-13 at 17.20.07_af126feb.jpg c:\Users\JOEL\Downloads\WhatsApp Image 2025-08-13 at 17.20.07_6912bfc6.jpg c:\Users\JOEL\Downloads\WhatsApp Image 2025-08-13 at 17.20.27_22f3356f.jpg
 ⚡ Real-time Health Fact Checking • 🎯 Page-wide Claim Detection • 📊 Visual Analytics • 🔍 AI-Powered Validation
 🚀 Quick Start • 📋 Features • 🏗️ Architecture • 📖 Documentation
 </div>

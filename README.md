@@ -88,7 +88,7 @@ bash# System Requirements
 ⚡ Installation (5 Minutes)
 1️⃣ Backend Setup
 bash# Clone the repository
-git clone https://github.com/yourusername/healthguard-ai.git
+git clone https://github.com/Joeld0013/SDG_CUREINTEL.git
 cd healthguard-ai
 
 # Install Python dependencies

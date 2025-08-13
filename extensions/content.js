@@ -283,7 +283,7 @@ if (!window.hasRun) {
             
             if (regex.test(text)) {
                 const highlightedHTML = text.replace(regex, (match) => 
-                    <span class="${className}" title="HealthGuard: ${classification}" data-claim="${escapeHtml(searchText)}">${match}</span>
+                    `<span class="${className}" title="HealthGuard: ${classification}" data-claim="${escapeHtml(searchText)}">${match}</span>`
                 );
                 
                 // Create a temporary container to convert HTML string to DOM elements

@@ -109,7 +109,7 @@ You are an AI model that functions as a precise health claim detector. Your task
 
 1.  **Analyze the Text:** Read the entire text provided and find health-related factual statements.
 2.  **Identify Claims:** Find every distinct health-related statement presented as a fact. Look for statements like "X cures Y", "This supplement does Z", "Procedure A is B% effective", etc.
-3.  **Verify and Classify:** For each claim, classify it as either "Accurate", "Misleading", or "Unverifiable" based on medical evidence.
+3.  **Verify and Classify:** For each claim, classify it as either "Accurate" or "Misleading" based on medical evidence.
 4.  **Output Format:** You MUST respond with ONLY a valid JSON object. No markdown, no extra text, no explanations - just pure JSON.
 
 The JSON structure must be:
@@ -117,7 +117,7 @@ The JSON structure must be:
   "claims": [
     {{
       "claim_text": "exact text of the claim from the webpage",
-      "classification": "Accurate" or "Misleading" or "Unverifiable"
+      "classification": "Accurate" or "Misleading"
     }}
   ]
 }}
@@ -324,6 +324,7 @@ def clean_response_text(text):
     
     return text.strip()
 
+<<<<<<< HEAD
 def calculate_statistics(claims):
     """Calculate percentage statistics for claims"""
     if not claims:
@@ -352,6 +353,9 @@ def calculate_statistics(claims):
         "unverifiable_percentage": round((unverifiable_count / total_claims) * 100) if total_claims > 0 else 0
     }
 
+=======
+# --- UPDATED /scan-page ENDPOINT with better error handling ---
+>>>>>>> 765a4da8e4c9b3455a600db7b72ee83ef4fb44ee
 @app.route("/scan-page", methods=["POST"])
 def scan_page():
     try:
@@ -374,7 +378,7 @@ def scan_page():
 
         if not response or not response.text:
             logger.error("No response from Gemini API")
-            return jsonify({"claims": [], "statistics": calculate_statistics([])}), 200
+            return jsonify({"claims": []}), 200
 
         # Clean up the response text
         response_text = clean_response_text(response.text)
@@ -391,26 +395,18 @@ def scan_page():
             # Try to extract claims manually as fallback
             output = {"claims": []}
 
-        # Calculate statistics
-        claims = output.get('claims', [])
-        statistics = calculate_statistics(claims)
-        
-        # Add statistics to output
-        output["statistics"] = statistics
-        
-        claims_count = len(claims)
+        claims_count = len(output.get('claims', []))
         logger.info(f"Page scan complete. Found {claims_count} claims.")
-        logger.info(f"Statistics: {statistics['accurate_percentage']}% accurate, {statistics['misleading_percentage']}% misleading, {statistics['unverifiable_percentage']}% unverifiable")
         
         # Log each claim for debugging
-        for i, claim in enumerate(claims):
+        for i, claim in enumerate(output.get('claims', [])):
             logger.info(f"Claim {i+1}: {claim.get('claim_text', 'N/A')[:100]}... - {claim.get('classification', 'N/A')}")
         
         return jsonify(output)
 
     except Exception as e:
         logger.error(f"Page scan error: {str(e)}")
-        return jsonify({"error": str(e), "claims": [], "statistics": calculate_statistics([])}), 500
+        return jsonify({"error": str(e), "claims": []}), 500
 
 @app.route("/health", methods=["GET"])
 def health_check():

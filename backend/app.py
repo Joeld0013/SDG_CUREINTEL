@@ -22,7 +22,7 @@ API_KEY = "AIzaSyCgIMjEJAEmRPRieeG4mhartrjb20MJdfM"  # Replace with your actual 
 os.environ["GOOGLE_API_KEY"] = API_KEY
 genai.configure(api_key=API_KEY)
 
-# This is the original prompt for single claims from your side panel
+# Original prompt for fact-checking mode
 PROMPT_TEMPLATE = """
 You are HealthGuard AI, a friendly and authoritative medical fact-checking assistant. Your primary goal is to verify health-related claims and provide clear, helpful, and easy-to-understand explanations based on trusted medical sources.
 
@@ -50,7 +50,58 @@ Content: {content}
         * `"url"`: (string) The direct URL to the supporting article. Provide at least two sources if possible.
 """
 
-# --- UPDATED PROMPT for scanning a full page ---
+# NEW: Advanced Doctor Mode prompt
+DOCTOR_MODE_PROMPT = """
+You are HealthGuard AI Doctor, an advanced AI medical assistant. You provide comprehensive, evidence-based medical information and guidance while maintaining the highest standards of medical accuracy.
+
+Input type: {type}  // text | link | image_text
+Content: {content}
+
+**Your Role:**
+- Act as a knowledgeable medical advisor
+- Provide detailed, evidence-based medical information
+- Offer practical health guidance and recommendations
+- Always cite verified medical sources
+- Maintain professional medical standards
+
+**Instructions:**
+
+1. **Health Relevance Check:** 
+   * If the query is NOT health/medical related, return:
+     `{{"is_health_related": false, "message": "I am HealthGuard AI Doctor and can only assist with health and medical questions. Please ask about symptoms, conditions, treatments, or other health-related topics."}}`
+
+2. **Medical Response Framework:**
+   * Provide comprehensive medical information
+   * Include symptoms, causes, treatments, and prevention when relevant
+   * Offer practical advice and recommendations
+   * Always include important disclaimers about consulting healthcare professionals
+   * Cite multiple verified medical sources
+
+3. **Response Structure:** Create a JSON object with:
+   * `"is_health_related"`: (boolean) `true`
+   * `"response_type"`: (string) "medical_advice" 
+   * `"condition_overview"`: (string) Brief overview of the condition/topic
+   * `"detailed_explanation"`: (string) Comprehensive medical explanation
+   * `"symptoms"`: (array of strings) Relevant symptoms if applicable
+   * `"causes"`: (array of strings) Common causes if applicable  
+   * `"treatments"`: (array of strings) Available treatment options
+   * `"prevention"`: (string) Prevention strategies if applicable
+   * `"when_to_seek_help"`: (string) When to consult a healthcare professional
+   * `"important_notes"`: (string) Important disclaimers and additional information
+   * `"verified_sources"`: (array of objects) Medical sources with:
+     * `"name"`: (string) Source name (WHO, Mayo Clinic, NIH, etc.)
+     * `"url"`: (string) Direct URL to source
+     * `"credibility"`: (string) Why this source is trustworthy
+
+**Important Guidelines:**
+- Always recommend consulting healthcare professionals for diagnosis and treatment
+- Provide evidence-based information only
+- Include emergency warning signs when relevant
+- Be comprehensive but clear and understandable
+- Never provide specific medication dosages without emphasizing professional consultation
+"""
+
+# Scanner prompt remains the same
 PROMPT_TEMPLATE_SCANNER = """
 You are an AI model that functions as a precise health claim detector. Your task is to analyze a block of text from a webpage and identify all specific, verifiable health-related claims.
 
@@ -82,9 +133,10 @@ Text to analyze: {text}
 def home():
     return jsonify({
         "status": "HealthGuard API is running",
-        "version": "2.0",
+        "version": "3.0",
         "endpoints": {
             "/validate": "POST - Validate a single health claim (text, link, or image)",
+            "/doctor-mode": "POST - Advanced medical consultation mode",
             "/scan-page": "POST - Scan a block of text for multiple health claims"
         }
     })
@@ -168,6 +220,86 @@ def validate():
             "sources": []
         }), 500
 
+# NEW: Doctor Mode Endpoint
+@app.route("/doctor-mode", methods=["POST"])
+def doctor_mode():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided",
+                "response_type": "error",
+                "detailed_explanation": "Invalid request format"
+            }), 400
+        
+        input_type = data.get("type", "text")
+        
+        logger.info(f"Processing {input_type} doctor mode request")
+        
+        model = genai.GenerativeModel("models/gemini-1.5-flash")
+        
+        if input_type == 'image_text':
+            content_data = data.get("content", {})
+            text_content = content_data.get("text", "")
+            image_base64 = content_data.get("image_base64")
+
+            if not image_base64:
+                 return jsonify({"error": "Missing image data for image_text type"}), 400
+
+            header, encoded = image_base64.split(",", 1)
+            decoded_image = base64.b64decode(encoded)
+            image_part = Image.open(BytesIO(decoded_image))
+            
+            prompt_content_for_template = text_content if text_content else "Analyze the attached image for medical information."
+            prompt = DOCTOR_MODE_PROMPT.format(type=input_type, content=prompt_content_for_template[:2000])
+            
+            response = model.generate_content([prompt, image_part])
+
+        else:  # Handles 'text' and 'link'
+            content = data.get("content", "").strip()
+            if not content:
+                return jsonify({
+                    "error": "No content provided", 
+                    "response_type": "error", 
+                    "detailed_explanation": "Empty medical query received"
+                }), 400
+            
+            prompt = DOCTOR_MODE_PROMPT.format(type=input_type, content=content[:2000])
+            response = model.generate_content(prompt)
+        
+        if not response or not response.text:
+            raise Exception("No response from Gemini API")
+        
+        response_text = response.text.strip()
+        
+        if response_text.startswith("```json"):
+            response_text = response_text[7:-3].strip()
+        elif response_text.startswith("`"):
+            response_text = response_text.strip("`").strip()
+
+        try:
+            output = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error in doctor mode: {e}")
+            logger.error(f"Raw response: {response_text}")
+            return jsonify({
+                "response_type": "error",
+                "detailed_explanation": f"Could not process AI response. Raw response: {response_text[:200]}...",
+                "error": "JSON parsing failed"
+            }), 500
+        
+        logger.info(f"Doctor mode consultation complete: {output.get('response_type', 'Unknown')}")
+        return jsonify(output)
+        
+    except Exception as e:
+        logger.error(f"Doctor mode error: {str(e)}")
+        return jsonify({
+            "error": str(e),
+            "response_type": "error",
+            "detailed_explanation": f"An unexpected error occurred: {str(e)}"
+        }), 500
+
 def clean_response_text(text):
     """Clean up Gemini's response text to extract valid JSON"""
     text = text.strip()
@@ -220,7 +352,6 @@ def calculate_statistics(claims):
         "unverifiable_percentage": round((unverifiable_count / total_claims) * 100) if total_claims > 0 else 0
     }
 
-# --- UPDATED /scan-page ENDPOINT with statistics ---
 @app.route("/scan-page", methods=["POST"])
 def scan_page():
     try:

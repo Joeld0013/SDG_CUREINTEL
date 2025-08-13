@@ -9,24 +9,33 @@ class HealthGuardChat {
         this.fileInput = document.getElementById('fileInput');
         this.fileUploadBtn = document.getElementById('fileUploadBtn');
         this.voiceBtn = document.getElementById('voiceBtn');
-        this.scanBtn = document.querySelector('#scanBtn'); // Use querySelector for flexibility
+        this.scanBtn = document.querySelector('#scanBtn');
         this.clearBtn = document.querySelector('#clearBtn');
+        this.inputSection = document.getElementById('inputSection');
+        this.inputContainer = document.getElementById('inputContainer');
+        this.actionButtons = document.getElementById('actionButtons');
+        this.placeholderText = document.getElementById('placeholderText');
 
-        // --- Corrected Image Preview Elements ---
+        // --- Toggle Elements ---
+        this.modeToggle = document.getElementById('modeToggle');
+
+        // --- Image Preview Elements ---
         this.imagePreviewWrapper = document.getElementById('imagePreviewWrapper');
         this.previewThumbnail = document.getElementById('previewThumbnail');
         this.removeImageBtn = document.getElementById('removeImageBtn');
 
         // --- State ---
-        this.attachedImage = null; // Holds the base64 string of the image
+        this.attachedImage = null;
         this.isRecognizing = false;
         this.recognition = null;
-        this.currentScanMessageId = null; // Track the scanning message for updates
+        this.currentScanMessageId = null;
+        this.doctorMode = false; // New state for doctor mode
 
         this.initializeEventListeners();
         this.adjustTextareaHeight();
         this.initializeSpeechRecognition();
         this.initializeBackgroundMessageListener();
+        this.updatePlaceholderText();
     }
 
     initializeEventListeners() {
@@ -39,7 +48,6 @@ class HealthGuardChat {
         });
         this.textInput.addEventListener('input', () => {
             this.adjustTextareaHeight();
-            // Enable send button if there's text OR an image attached
             this.sendBtn.disabled = this.textInput.value.trim().length === 0 && !this.attachedImage;
         });
 
@@ -52,6 +60,69 @@ class HealthGuardChat {
         this.voiceBtn.addEventListener('click', () => this.handleVoiceInput());
         if (this.scanBtn) this.scanBtn.addEventListener('click', () => this.handlePageScan());
         if (this.clearBtn) this.clearBtn.addEventListener('click', () => this.clearConversation());
+
+        // --- Toggle Event ---
+        this.modeToggle.addEventListener('click', () => this.toggleDoctorMode());
+    }
+
+    // Toggle between normal and doctor mode
+    toggleDoctorMode() {
+        this.doctorMode = !this.doctorMode;
+        
+        // Update toggle appearance
+        this.modeToggle.classList.toggle('active', this.doctorMode);
+        
+        // Update UI elements
+        this.updateUIForMode();
+        this.updatePlaceholderText();
+        
+        console.log(`Doctor mode: ${this.doctorMode ? 'ON' : 'OFF'}`);
+    }
+
+    // Update UI elements based on current mode
+    updateUIForMode() {
+        const elements = [
+            this.inputSection,
+            this.inputContainer,
+            this.textInput,
+            this.sendBtn,
+            this.voiceBtn,
+            ...this.actionButtons.children
+        ];
+
+        elements.forEach(element => {
+            if (element) {
+                element.classList.toggle('doctor-mode', this.doctorMode);
+            }
+        });
+
+        this.conversationArea.classList.toggle('doctor-mode', this.doctorMode);
+        
+        // Update placeholder text
+        if (this.doctorMode) {
+            this.textInput.placeholder = "Ask me any health question - symptoms, treatments, conditions...";
+        } else {
+            this.textInput.placeholder = "Ask about health information...";
+        }
+    }
+
+    // Update placeholder text based on mode
+    updatePlaceholderText() {
+        if (this.placeholderText) {
+            this.placeholderText.classList.toggle('doctor-mode', this.doctorMode);
+            
+            if (this.doctorMode) {
+                this.placeholderText.innerHTML = `
+                    <h2>🩺 Doctor Mode Active</h2>
+                    <p>Ask me anything about health, symptoms, treatments, or medical conditions</p>
+                `;
+            } else {
+                this.placeholderText.innerHTML = `
+                    <h2>Hi, There!</h2>
+                    <p>Welcome to HealthGuard AI</p>
+                `;
+            }
+        }
     }
 
     // Listen for messages from background script
@@ -97,13 +168,13 @@ class HealthGuardChat {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            this.attachedImage = e.target.result; // This is the Base64 string
+            this.attachedImage = e.target.result;
             this.previewThumbnail.src = this.attachedImage;
             this.imagePreviewWrapper.style.display = 'block';
-            this.sendBtn.disabled = false; // Always enable send when image is attached
+            this.sendBtn.disabled = false;
         };
         reader.readAsDataURL(file);
-        event.target.value = ''; // Reset input to allow re-uploading the same file
+        event.target.value = '';
     }
     
     handleRemoveImage() {
@@ -127,7 +198,7 @@ class HealthGuardChat {
         this.addMessage(text, 'user', image);
         
         this.textInput.value = '';
-        this.handleRemoveImage(); // This clears the preview and state
+        this.handleRemoveImage();
         this.adjustTextareaHeight();
         this.sendBtn.disabled = true;
 
@@ -137,7 +208,10 @@ class HealthGuardChat {
             const inputType = image ? 'image_text' : (this.isURL(text) ? 'link' : 'text');
             const contentPayload = image ? { text: text, image_base64: image } : text;
             
-            const response = await fetch(`${this.API_BASE_URL}/validate`, {
+            // Choose endpoint based on mode
+            const endpoint = this.doctorMode ? '/doctor-mode' : '/validate';
+            
+            const response = await fetch(`${this.API_BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({ type: inputType, content: contentPayload })
@@ -148,10 +222,15 @@ class HealthGuardChat {
             const data = await response.json();
             
             this.removeLoadingMessage();
-            if (data.is_health_related === false) {
-                this.addMessage(data.message || "This doesn't appear to be a health-related query.", 'bot');
+            
+            if (this.doctorMode) {
+                this.displayDoctorResponse(data);
             } else {
-                this.displayValidationResult(data);
+                if (data.is_health_related === false) {
+                    this.addMessage(data.message || "This doesn't appear to be a health-related query.", 'bot');
+                } else {
+                    this.displayValidationResult(data);
+                }
             }
 
         } catch (error) {
@@ -164,15 +243,12 @@ class HealthGuardChat {
     }
     
     handlePageScan() {
-        // Find the currently active tab.
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             if (tabs.length > 0) {
                 const currentTabId = tabs[0].id;
                 
-                // Add initial scanning message
                 this.currentScanMessageId = this.addScanMessage("🔎 Scanning current page for health claims...");
                 
-                // Send a message to the background script to start the process.
                 chrome.runtime.sendMessage({
                     action: "scanPage",
                     tabId: currentTabId
@@ -230,10 +306,8 @@ class HealthGuardChat {
         const stats = data.statistics;
         const claims = data.claims || [];
         
-        // Create the progress bar HTML
         const progressBarHTML = this.createProgressBar(stats);
         
-        // Update the message content with results
         const contentDiv = messageDiv.querySelector('.message-content');
         contentDiv.innerHTML = `
             <div class="scan-results-header">
@@ -274,11 +348,107 @@ class HealthGuardChat {
         `;
     }
 
+    // NEW: Display doctor mode response
+    displayDoctorResponse(data) {
+        if (data.is_health_related === false) {
+            this.addMessage(data.message || "I am HealthGuard AI Doctor and can only assist with health and medical questions.", 'bot', null, true);
+            return;
+        }
+
+        const botMessageHTML = `
+            <div class="message-avatar"> <img src="HealthGuardAI.jpeg" alt="Bot" class="logo-image"> </div>
+            <div class="message-content">
+                <div class="doctor-response">
+                    <div class="doctor-response-header">
+                        <i class="fa-solid fa-stethoscope"></i>
+                        <h4>Medical Consultation</h4>
+                    </div>
+                    
+                    ${data.condition_overview ? `
+                        <div class="condition-overview">
+                            <strong>Overview:</strong> ${data.condition_overview}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="doctor-section">
+                        <p><strong>Detailed Information:</strong></p>
+                        <p>${data.detailed_explanation || 'No detailed explanation available.'}</p>
+                    </div>
+                    
+                    ${data.symptoms && data.symptoms.length > 0 ? `
+                        <div class="doctor-section">
+                            <h5><i class="fa-solid fa-thermometer"></i> Common Symptoms</h5>
+                            <ul>
+                                ${data.symptoms.map(symptom => `<li>${symptom}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.causes && data.causes.length > 0 ? `
+                        <div class="doctor-section">
+                            <h5><i class="fa-solid fa-search"></i> Common Causes</h5>
+                            <ul>
+                                ${data.causes.map(cause => `<li>${cause}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.treatments && data.treatments.length > 0 ? `
+                        <div class="doctor-section">
+                            <h5><i class="fa-solid fa-pills"></i> Treatment Options</h5>
+                            <ul>
+                                ${data.treatments.map(treatment => `<li>${treatment}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.prevention ? `
+                        <div class="doctor-section">
+                            <h5><i class="fa-solid fa-shield"></i> Prevention</h5>
+                            <p>${data.prevention}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.when_to_seek_help ? `
+                        <div class="doctor-section">
+                            <h5><i class="fa-solid fa-hospital"></i> When to Seek Medical Help</h5>
+                            <p>${data.when_to_seek_help}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.important_notes ? `
+                        <div class="important-notes">
+                            <h5><i class="fa-solid fa-exclamation-triangle"></i> Important Notes</h5>
+                            <p>${data.important_notes}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${data.verified_sources && data.verified_sources.length > 0 ? `
+                        <div class="verified-sources">
+                            <h5><i class="fa-solid fa-certificate"></i> Verified Medical Sources</h5>
+                            ${data.verified_sources.map(source => `
+                                <div class="source-item">
+                                    <span class="source-name">${source.name}</span>
+                                    <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-link">View Source</a>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>`;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot doctor-mode';
+        messageDiv.innerHTML = botMessageHTML;
+        this.conversationArea.appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+
     // --- UI Update Methods ---
-    addMessage(content, type = 'user', imageUrl = null) {
+    addMessage(content, type = 'user', imageUrl = null, isDoctorMode = false) {
         document.querySelector('.placeholder-text')?.remove();
         const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${type}`;
+        messageDiv.className = `message ${type}${isDoctorMode && type === 'bot' ? ' doctor-mode' : ''}`;
         
         const avatarSrc = type === 'user' ? null : 'HealthGuardAI.jpeg';
         const avatarContent = type === 'user' ? '<i class="fa-solid fa-user"></i>' : `<img src="${avatarSrc}" alt="Bot" class="logo-image">`;
@@ -300,12 +470,15 @@ class HealthGuardChat {
         document.querySelector('.placeholder-text')?.remove();
         const loadingDiv = document.createElement('div');
         loadingDiv.id = 'loadingMessage';
-        loadingDiv.className = 'message bot';
+        loadingDiv.className = `message bot${this.doctorMode ? ' doctor-mode' : ''}`;
+        
+        const loadingText = this.doctorMode ? 'Consulting medical databases...' : 'Analyzing...';
+        
         loadingDiv.innerHTML = `
             <div class="message-avatar"> <img src="HealthGuardAI.jpeg" alt="Bot" class="logo-image"> </div>
-            <div class="message-content loading">
+            <div class="message-content loading${this.doctorMode ? ' doctor-mode' : ''}">
                 <div class="loading-spinner"></div>
-                <span>Analyzing...</span>
+                <span>${loadingText}</span>
             </div>
         `;
         this.conversationArea.appendChild(loadingDiv);
@@ -356,7 +529,9 @@ class HealthGuardChat {
     }
 
     clearConversation() {
-        this.conversationArea.innerHTML = `<div class="placeholder-text"><h2>Hi, There!</h2><p>Welcome to HealthGuard AI</p></div>`;
+        this.updatePlaceholderText();
+        this.conversationArea.innerHTML = '';
+        this.conversationArea.appendChild(this.placeholderText);
         this.textInput.value = '';
         this.handleRemoveImage();
         this.adjustTextareaHeight();
